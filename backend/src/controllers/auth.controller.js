@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/utils.js";
 import { sendWelcomeEmail } from "../emails/emailHandlers.js";
+import cloudinary from "../lib/cloudinary.js";
 
 const signup = async (req, res) => {
   const { fullname, email, password } = req.body;
@@ -108,4 +109,37 @@ const logout = (_, res) => {
   return res.status(200).json({ message: "Logout successful" });
 };
 
-export { signup, login, logout };
+const updateProfile = async (req, res) => {
+  const { fullname } = req.body;
+  const userId = req.user._id;
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (fullname) user.fullname = fullname;
+
+    // Handle profile picture upload if provided  
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'profile_pictures',
+      });
+      user.profilePicture = result.secure_url;
+    }
+
+    await user.save();
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      user: {
+        fullname: user.fullname,
+        email: user.email,
+        profilePicture: user.profilePicture,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+export { signup, login, logout, updateProfile };
