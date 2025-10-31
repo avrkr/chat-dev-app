@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/utils.js";
 import { sendWelcomeEmail } from "../emails/emailHandlers.js";
 
-export const signup = async (req, res) => {
+const signup = async (req, res) => {
   const { fullname, email, password } = req.body;
 
   try {
@@ -61,3 +61,51 @@ export const signup = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+
+
+const login = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // Generate token
+    generateToken(user._id, res);
+
+    return res.status(200).json({
+      message: "Login successful",
+      user: {
+        fullname: user.fullname,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Error during user login:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+const logout = (_, res) => {
+  res.cookie("jwt", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+    maxAge: 0,
+  });
+  return res.status(200).json({ message: "Logout successful" });
+};
+
+export { signup, login, logout };
