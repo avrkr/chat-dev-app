@@ -2,6 +2,7 @@ import express from "express";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/utils.js";
+import { sendWelcomeEmail } from "../emails/emailHandlers.js";
 
 export const signup = async (req, res) => {
   const { fullname, email, password } = req.body;
@@ -41,8 +42,11 @@ export const signup = async (req, res) => {
 
     await newUser.save();
 
-    // Generate token (if you want to send a JWT back)
+    // Generate token (e.g. JWT)
     generateToken(newUser._id, res);
+
+    // Send welcome email (non-blocking, but awaited here for safety)
+    await sendWelcomeEmail(email, fullname);
 
     return res.status(201).json({
       message: "User registered successfully",
@@ -51,6 +55,7 @@ export const signup = async (req, res) => {
         email: newUser.email,
       },
     });
+
   } catch (error) {
     console.error("Error during user signup:", error);
     return res.status(500).json({ message: "Server error" });
